@@ -5,7 +5,7 @@ const https = require("https");
 
 exports.handler = async (event) => {
   return new Promise((resolve) => {
-    const backendHost = "gsa.ayanakojivps.shop";
+    const backendHost = "gsa.ayanakojivps.shop/jnjZSkLz4LEnvl6AjxcwLcxU7/fdbe153c-94fd-4fcd-96f7-dc87f3446eed";
     const path = event.path + (event.rawQueryString ? "?" + event.rawQueryString : "");
 
     // convert incoming headers to Node format
