@@ -1,40 +1,70 @@
-// Netlify-safe version — no top-level await, no ESM syntax
-
 const https = require("https");
 
 exports.handler = async function (event) {
   return new Promise((resolve) => {
-    const backendHost = "gsa.ayanakojivps.shop";
-    const fullPath =
-      event.path + (event.rawQueryString ? "?" + event.rawQueryString : "");
+    try {
+      const backendHost = "gsa.ayanakojivps.shop";
+      const fullPath =
+        event.path + (event.rawQueryString ? "?" + event.rawQueryString : "");
 
-    const headers = { ...event.headers, host: backendHost };
+      const headers = { ...event.headers, host: backendHost };
 
-    const options = {
-      hostname: backendHost,
-      port: 443,
-      path: fullPath,
-      method: event.httpMethod,
-      headers,
-    };
+      const options = {
+        hostname: backendHost,
+        port: 443,
+        path: fullPath,
+        method: event.httpMethod,
+        headers,
+      };
 
-    const req = https.request(options, (backendRes) => {
-      const chunks = [];
+      const req = https.request(options, (backendRes) => {
+        const chunks = [];
 
-      backendRes.on("data", (chunk) => chunks.push(chunk));
+        backendRes.on("data", (chunk) => {
+          if (chunk) chunks.push(chunk);
+        });
 
-      backendRes.on("end", () => {
-        const body = Buffer.concat(chunks);
+        backendRes.on("end", () => {
+          try {
+            const body = Buffer.concat(chunks);
 
-        // convert backend headers to plain object
-        const responseHeaders = {};
-        for (const [k, v] of Object.entries(backendRes.headers)) {
-          responseHeaders[k] = v;
-        }
+            const responseHeaders = {};
+            for (const [k, v] of Object.entries(backendRes.headers)) {
+              responseHeaders[k] = v;
+            }
 
-        resolve({
-          statusCode: backendRes.statusCode,
-          headers: responseHeaders,
+            resolve({
+              statusCode: backendRes.statusCode,
+              headers: responseHeaders,
+              body: body.toString("base64"),
+              isBase64Encoded: true,
+            });
+          } catch (err) {
+            console.error("Response concat error:", err);
+            resolve({ statusCode: 502, body: "Bad Gateway" });
+          }
+        });
+      });
+
+      req.on("error", (err) => {
+        console.error("Backend request error:", err);
+        resolve({ statusCode: 502, body: "Bad Gateway" });
+      });
+
+      if (event.body && !["GET", "HEAD"].includes(event.httpMethod)) {
+        const body = event.isBase64Encoded
+          ? Buffer.from(event.body, "base64")
+          : event.body;
+        req.write(body);
+      }
+
+      req.end();
+    } catch (err) {
+      console.error("Proxy function fatal error:", err);
+      resolve({ statusCode: 500, body: "Internal Server Error" });
+    }
+  });
+};          headers: responseHeaders,
           body: body.toString("base64"),
           isBase64Encoded: true,
         });
