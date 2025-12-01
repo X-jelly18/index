@@ -1,0 +1,12 @@
+{
+  "name": "netlify-proxy",
+  "version": "1.0.0",
+  "description": "Binary-safe forward proxy function for Netlify (VMess/xHTTP ready)",
+  "main": "netlify/functions/proxy.js",
+  "scripts": {
+    "start": "netlify dev"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  }
+}
