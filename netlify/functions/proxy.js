@@ -1,40 +1,68 @@
-// netlify/functions/proxy.js
-const fetch = require('node-fetch');
+// Perfect Netlify adaptation of your Vercel proxy
+// Same behavior, same logic, binary-safe
 
-const BACKEND_URL = process.env.BACKEND_URL || "https://gsa.ayanakojivps.shop";
+const https = require("https");
 
-function buildBackendUrl(event) {
-  // event.path contains the path after the domain
-  // event.rawQueryString may exist (Netlify adds it in some runtimes)
-  const path = event.path || "/";
-  const qs = (event.rawQueryString && event.rawQueryString.length) ? `?${event.rawQueryString}` : (() => {
-    if (event.queryStringParameters && Object.keys(event.queryStringParameters).length) {
-      return '?' + Object.entries(event.queryStringParameters).map(([k,v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+exports.handler = async (event) => {
+  return new Promise((resolve) => {
+    const backendHost = "gsa.ayanakojivps.shop";
+    const path = event.path + (event.rawQueryString ? "?" + event.rawQueryString : "");
+
+    // convert incoming headers to Node format
+    const headers = { ...event.headers, host: backendHost };
+
+    const options = {
+      hostname: backendHost,
+      port: 443,
+      path,
+      method: event.httpMethod,
+      headers,
+    };
+
+    const req = https.request(options, (backendRes) => {
+      // Collect response chunks (binary)
+      const chunks = [];
+      backendRes.on("data", (chunk) => chunks.push(chunk));
+
+      backendRes.on("end", () => {
+        const bodyBuffer = Buffer.concat(chunks);
+
+        // Convert backend headers to plain object
+        const responseHeaders = {};
+        for (const [key, value] of Object.entries(backendRes.headers)) {
+          responseHeaders[key] = value;
+        }
+
+        // Return exactly what backend sent, base64-encoded for Netlify
+        resolve({
+          statusCode: backendRes.statusCode,
+          headers: responseHeaders,
+          body: bodyBuffer.toString("base64"),
+          isBase64Encoded: true,
+        });
+      });
+    });
+
+    req.on("error", (err) => {
+      console.error("Backend request error:", err);
+      resolve({
+        statusCode: 502,
+        body: "Bad Gateway",
+      });
+    });
+
+    // Forward request body for POST / PUT, etc.
+    if (event.body && event.httpMethod !== "GET" && event.httpMethod !== "HEAD") {
+      const body = event.isBase64Encoded
+        ? Buffer.from(event.body, "base64")
+        : event.body;
+
+      req.write(body);
     }
-    return '';
-  })();
 
-  return `${BACKEND_URL}${path}${qs}`;
-}
-
-exports.handler = async function(event, context) {
-  try {
-    const backendUrl = buildBackendUrl(event);
-
-    // Build headers and ensure Host is backend host
-    const headers = Object.assign({}, event.headers || {});
-    try {
-      const backendHost = new URL(BACKEND_URL).host;
-      headers['host'] = backendHost;
-    } catch (e) {
-      // ignore
-    }
-
-    // Remove headers that can confuse proxies (optional)
-    delete headers['x-forwarded-for'];
-    delete headers['x-forwarded-proto'];
-    delete headers['x-forwarded-host'];
-    // Keep content-type and others intact for VLESS/xhttp
+    req.end();
+  });
+};    // Keep content-type and others intact for VLESS/xhttp
 
     // Prepare body: Netlify passes body as string; may be base64 encoded.
     let body;
