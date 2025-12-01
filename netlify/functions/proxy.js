@@ -1,6 +1,6 @@
 const https = require("https");
 
-exports.handler = async function (event) {
+exports.handler = async function(event, context) {
   return new Promise((resolve) => {
     try {
       const backendHost = "gsa.ayanakojivps.shop";
@@ -14,7 +14,7 @@ exports.handler = async function (event) {
         port: 443,
         path: fullPath,
         method: event.httpMethod,
-        headers,
+        headers: headers
       };
 
       const req = https.request(options, (backendRes) => {
@@ -29,12 +29,42 @@ exports.handler = async function (event) {
             const body = Buffer.concat(chunks);
 
             const responseHeaders = {};
-            for (const [k, v] of Object.entries(backendRes.headers)) {
-              responseHeaders[k] = v;
+            for (const key in backendRes.headers) {
+              responseHeaders[key] = backendRes.headers[key];
             }
 
             resolve({
               statusCode: backendRes.statusCode,
+              headers: responseHeaders,
+              body: body.toString("base64"),
+              isBase64Encoded: true
+            });
+          } catch (err) {
+            console.error("Response concat error:", err);
+            resolve({ statusCode: 502, body: "Bad Gateway" });
+          }
+        });
+      });
+
+      req.on("error", (err) => {
+        console.error("Backend request error:", err);
+        resolve({ statusCode: 502, body: "Bad Gateway" });
+      });
+
+      if (event.body && !["GET", "HEAD"].includes(event.httpMethod)) {
+        const body = event.isBase64Encoded
+          ? Buffer.from(event.body, "base64")
+          : event.body;
+        req.write(body);
+      }
+
+      req.end();
+    } catch (err) {
+      console.error("Proxy function fatal error:", err);
+      resolve({ statusCode: 500, body: "Internal Server Error" });
+    }
+  });
+};              statusCode: backendRes.statusCode,
               headers: responseHeaders,
               body: body.toString("base64"),
               isBase64Encoded: true,
