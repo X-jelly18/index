@@ -1,40 +1,71 @@
-// Perfect Netlify adaptation of your Vercel proxy
-// Same behavior, same logic, binary-safe
+// Netlify-safe version — no top-level await, no ESM syntax
 
 const https = require("https");
 
-exports.handler = async (event) => {
+exports.handler = async function (event) {
   return new Promise((resolve) => {
-    const backendHost = "gsa.ayanakojivps.shop/jnjZSkLz4LEnvl6AjxcwLcxU7/fdbe153c-94fd-4fcd-96f7-dc87f3446eed";
-    const path = event.path + (event.rawQueryString ? "?" + event.rawQueryString : "");
+    const backendHost = "gsa.ayanakojivps.shop";
+    const fullPath =
+      event.path + (event.rawQueryString ? "?" + event.rawQueryString : "");
 
-    // convert incoming headers to Node format
     const headers = { ...event.headers, host: backendHost };
 
     const options = {
       hostname: backendHost,
       port: 443,
-      path,
+      path: fullPath,
       method: event.httpMethod,
       headers,
     };
 
     const req = https.request(options, (backendRes) => {
-      // Collect response chunks (binary)
       const chunks = [];
+
       backendRes.on("data", (chunk) => chunks.push(chunk));
 
       backendRes.on("end", () => {
-        const bodyBuffer = Buffer.concat(chunks);
+        const body = Buffer.concat(chunks);
 
-        // Convert backend headers to plain object
+        // convert backend headers to plain object
         const responseHeaders = {};
-        for (const [key, value] of Object.entries(backendRes.headers)) {
-          responseHeaders[key] = value;
+        for (const [k, v] of Object.entries(backendRes.headers)) {
+          responseHeaders[k] = v;
         }
 
-        // Return exactly what backend sent, base64-encoded for Netlify
         resolve({
+          statusCode: backendRes.statusCode,
+          headers: responseHeaders,
+          body: body.toString("base64"),
+          isBase64Encoded: true,
+        });
+      });
+    });
+
+    req.on("error", (err) => {
+      console.error("Proxy error:", err);
+
+      resolve({
+        statusCode: 502,
+        body: "Bad Gateway",
+      });
+    });
+
+    // forward client body
+    if (
+      event.httpMethod !== "GET" &&
+      event.httpMethod !== "HEAD" &&
+      event.body
+    ) {
+      const body = event.isBase64Encoded
+        ? Buffer.from(event.body, "base64")
+        : event.body;
+
+      req.write(body);
+    }
+
+    req.end();
+  });
+};        resolve({
           statusCode: backendRes.statusCode,
           headers: responseHeaders,
           body: bodyBuffer.toString("base64"),
