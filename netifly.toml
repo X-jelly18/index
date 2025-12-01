@@ -1,0 +1,17 @@
+[build]
+  publish = "public"
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/proxy"
+  status = 200
+  force = true
+
+[functions]
+  # Increase memory/timeout if needed
+  # Example: set 1GB and 30s timeout
+  # Note: adjust to your plan limits
+  node_bundler = "esbuild"
+  [functions.proxy]
+    memory = 512
+    timeout = 30
