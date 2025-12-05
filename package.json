@@ -1,12 +1,19 @@
 {
-  "name": "netlify-proxy",
+  "name": "netlify-proxy-function",
   "version": "1.0.0",
-  "description": "Binary-safe forward proxy function for Netlify (VMess/xHTTP ready)",
+  "description": "A serverless proxy function for Netlify",
   "main": "netlify/functions/proxy.js",
   "scripts": {
     "start": "netlify dev"
   },
+  "keywords": [
+    "netlify",
+    "serverless",
+    "proxy"
+  ],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "node-fetch": "^2.6.7"
+    "@netlify/functions": "^2.6.0"
   }
 }
