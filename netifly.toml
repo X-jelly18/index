@@ -1,8 +1,8 @@
-[build]
-  functions = "netlify/functions"
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["http", "https"]
 
 [[redirects]]
   from = "/*"
-  to = "/.netlify/functions/proxy"
+  to = "/.netlify/functions/vless-proxy"
   status = 200
-  force = true
