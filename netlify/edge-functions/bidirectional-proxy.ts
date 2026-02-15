@@ -1,4 +1,4 @@
-const ORIGIN = "https://ayanakojivps.shop";
+const ORIGIN = "https://139.84.240.66";
 
 export default async (request: Request) => {
   const url = new URL(request.url);
